@@ -1,0 +1,14 @@
+RewriteEngine On
+
+# Define a pasta raiz do seu projeto local
+RewriteBase /Site_agendamento/
+
+# Impede o acesso direto a pastas importantes pelo navegador
+# RewriteRule ^(config|models|controllers|views)/ - [F,L]
+
+# Se o arquivo ou pasta solicitada fisicamente existir, acessa direto (como imagens ou CSS)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Caso contrário, joga tudo para o controlador index.php tratar a rota
+RewriteRule ^(.*)$ index.php?url=$1 [QSA,L]
