@@ -242,12 +242,12 @@ $clienteNome   = $_SESSION['user_nome'] ?? '';
         <p class="text-xs opacity-80 tracking-widest uppercase">Agende seu horário online</p>
       </div>
       <?php if ($clienteLogado): ?>
-        <a href="/views/client/area-cliente.php"
+        <a href="<?php echo BASE_URL; ?>/views/client/area-cliente.php"
            class="text-xs bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-full transition">
           👗 Minha Área
         </a>
       <?php else: ?>
-        <a href="/views/login.php"
+        <a href="<?php echo BASE_URL; ?>/views/login.php"
            class="text-xs bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-full transition">
           Entrar
         </a>
@@ -669,7 +669,7 @@ async function renderizarCalendario() {
   // Busca dias disponíveis
   const profId = state.profissionalId || getQualquerProfissionalId();
   const res  = await fetch(
-    `/api/dias-disponiveis.php?profissional_id=${profId}&ano=${state.anoAtual}&mes=${state.mesAtual}&servico_id=${state.servicoId}`
+    `<?php echo BASE_URL; ?>/api/dias-disponiveis.php?profissional_id=${profId}&ano=${state.anoAtual}&mes=${state.mesAtual}&servico_id=${state.servicoId}`
   );
   const data = await res.json();
   const dias  = data.dias || {};
@@ -729,7 +729,7 @@ async function selecionarDia(dia) {
 
   const profId = state.profissionalId || getQualquerProfissionalId();
   const res  = await fetch(
-    `/api/horarios.php?profissional_id=${profId}&data=${dataStr}&servico_id=${state.servicoId}`
+    `<?php echo BASE_URL; ?>/api/horarios.php?profissional_id=${profId}&data=${dataStr}&servico_id=${state.servicoId}`
   );
   const data = await res.json();
   loading.classList.add('hidden');
@@ -810,7 +810,7 @@ async function confirmarAgendamento() {
   }
 
   try {
-    const res  = await fetch('/api/agendar.php', { method: 'POST', body: formData });
+    const res  = await fetch('<?php echo BASE_URL; ?>/api/agendar.php', { method: 'POST', body: formData });
     const resp = await res.json();
 
     if (!res.ok || resp.erro || resp.erros) {
