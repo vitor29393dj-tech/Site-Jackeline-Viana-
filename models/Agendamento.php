@@ -1,10 +1,11 @@
 <?php
 /**
- * models/Agendamento.php
+ * models/Agendamento.php — ATUALIZADO COM SUPORTE A TURNOS E ESCALAS
  */
 declare(strict_types=1);
 
 require_once __DIR__ . '/../config/Database.php';
+require_once __DIR__ . '/EscalaSabado.php';
 
 class Agendamento
 {
@@ -67,13 +68,7 @@ class Agendamento
     }
 
     /**
-     * Verifica se um slot (profissional + data/hora) está disponível.
-     * Considera: horários de funcionamento, bloqueios e agendamentos existentes.
-     *
-     * @param int    $profissionalId
-     * @param string $dataHoraInicio  "Y-m-d H:i:s"
-     * @param string $dataHoraFim     "Y-m-d H:i:s"
-     * @param ?int   $ignorarAgId    ID de agendamento a ignorar (para edição)
+     * Verifica se um slot (profissional + data/hora) está disponível percorrendo múltiplos turnos.
      */
     public static function checarDisponibilidade(
         int    $profissionalId,
@@ -118,60 +113,46 @@ class Agendamento
     }
 
     /**
-     * Retorna os horários disponíveis para um profissional em uma data.
-     * Usado pela chamada Fetch do Passo 3 (calendário).
-     *
-     * @param int    $profissionalId
-     * @param string $data           "Y-m-d"
-     * @param int    $duracaoMin     Duração do serviço em minutos
-     * @return array  [['hora' => 'HH:MM', 'disponivel' => bool], ...]
+     * Retorna os horários disponíveis considerando múltiplos turnos, intervalos e escala de sábado.
      */
     public static function getHorariosDisponiveis(
         int    $profissionalId,
         string $data,
         int    $duracaoMin = 60
     ): array {
-        $pdo = Database::getInstance();
+        $slots = [];
+        
+        // Obtém os turnos de trabalho efetivos para o dia solicitado (Trata Seg-Sex e a lógica de Sábado)
+        $turnos = EscalaSabado::getTurnosEfetivos($profissionalId, $data);
+        if (empty($turnos)) return [];
 
-        $dt       = new DateTime($data);
-        $diaSemana = (int)$dt->format('w'); // 0=Dom...6=Sáb
-
-        // Horários de funcionamento do profissional neste dia da semana
-        $stmtHf = $pdo->prepare("
-            SELECT hora_inicio, hora_fim
-              FROM horarios_funcionamento
-             WHERE profissional_id = :pid AND dia_semana = :ds AND ativo = 1
-             LIMIT 1
-        ");
-        $stmtHf->execute([':pid' => $profissionalId, ':ds' => $diaSemana]);
-        $hf = $stmtHf->fetch();
-
-        if (!$hf) return []; // não trabalha neste dia
-
-        $slots    = [];
-        $inicio   = new DateTime($data . ' ' . $hf['hora_inicio']);
-        $fim      = new DateTime($data . ' ' . $hf['hora_fim']);
         $intervalo = new DateInterval('PT' . $duracaoMin . 'M');
 
-        $cursor = clone $inicio;
-        while (true) {
-            $slotFim = clone $cursor;
-            $slotFim->add($intervalo);
-            if ($slotFim > $fim) break;
+        foreach ($turnos as $turno) {
+            $inicio = new DateTime($data . ' ' . $turno['hora_inicio']);
+            $fim    = new DateTime($data . ' ' . $turno['hora_fim']);
 
-            $disponivel = self::checarDisponibilidade(
-                $profissionalId,
-                $cursor->format('Y-m-d H:i:s'),
-                $slotFim->format('Y-m-d H:i:s')
-            );
+            $cursor = clone $inicio;
+            while (true) {
+                $slotFim = clone $cursor;
+                $slotFim->add($intervalo);
+                if ($slotFim > $fim) break;
 
-            $slots[] = [
-                'hora'       => $cursor->format('H:i'),
-                'hora_fim'   => $slotFim->format('H:i'),
-                'disponivel' => $disponivel,
-            ];
+                $disponivel = self::checarDisponibilidade(
+                    $profissionalId,
+                    $cursor->format('Y-m-d H:i:s'),
+                    $slotFim->format('Y-m-d H:i:s')
+                );
 
-            $cursor->add($intervalo);
+                $slots[] = [
+                    'hora'       => $cursor->format('H:i'),
+                    'hora_fim'   => $slotFim->format('H:i'),
+                    'disponivel' => $disponivel,
+                    'turno_label'=> $turno['turno_label'] ?? ''
+                ];
+
+                $cursor->add($intervalo);
+            }
         }
 
         return $slots;
@@ -179,13 +160,10 @@ class Agendamento
 
     /**
      * Persiste o agendamento no banco.
-     * Gera também o link do Google Calendar.
      */
     public function salvarAgendamento(): bool
     {
         $pdo = Database::getInstance();
-
-        // Gera Google Calendar link
         $this->gcalLink = $this->gerarGcalLink();
 
         $stmt = $pdo->prepare("
@@ -220,7 +198,7 @@ class Agendamento
     }
 
     /**
-     * Lista agendamentos de um profissional específico (escopo seguro para funcionário).
+     * Lista agendamentos de um profissional específico.
      */
     public static function listarPorProfissional(int $profissionalId, ?string $data = null): array
     {
@@ -285,9 +263,9 @@ class Agendamento
     /** Gera link de adicionar ao Google Calendar. */
     private function gerarGcalLink(): string
     {
-        $ini   = str_replace(['-', ':', ' '], ['', '', 'T'], $this->dataHoraInicio) . 'Z';
-        $fim   = str_replace(['-', ':', ' '], ['', '', 'T'], $this->dataHoraFim) . 'Z';
-        $texto = urlencode('Agendamento - Atelier de Costura');
+        $ini   = str_replace(['-', ':', ' '], ['', '', 'T'], $this->dataHoraInicio ?? '') . 'Z';
+        $fim   = str_replace(['-', ':', ' '], ['', '', 'T'], $this->dataHoraFim ?? '') . 'Z';
+        $texto = urlencode('Agendamento - Jackeline Viana Noivas & Festas');
         return "https://calendar.google.com/calendar/render?action=TEMPLATE&text={$texto}&dates={$ini}/{$fim}";
     }
 

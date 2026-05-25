@@ -56,7 +56,6 @@ class Profissional
             SELECT p.*, u.nome AS nome_completo, u.email
               FROM profissionais p
               JOIN usuarios u ON u.id = p.usuario_id
-             WHERE p.ativo = 1
              ORDER BY p.apelido ASC
         ");
         $stmt->execute();

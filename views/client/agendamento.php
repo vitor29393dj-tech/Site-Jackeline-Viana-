@@ -1,10 +1,10 @@
 <?php
+declare(strict_types=1);
+
 /**
  * views/client/agendamento.php
  * Tela de agendamento de horários para o cliente.
  */
-declare(strict_types=1);
-
 // Importa o arquivo de configuração e ativa as regras de sessão/buffer antes de renderizar o HTML
 require_once __DIR__ . '/../../config/config.php';
 ?>

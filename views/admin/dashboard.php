@@ -222,6 +222,9 @@ async function carregarAba(btn, abaForcada) {
       document.body.appendChild(n);
       n.remove();
     });
+    if (typeof window.initProfissionaisAba === 'function') {
+      window.initProfissionaisAba();
+    }
     painel.classList.remove('fade-out');
     painel.classList.add('fade-in');
     history.pushState({ aba }, '', `?aba=${aba}`);
